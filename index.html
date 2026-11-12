@@ -200,7 +200,7 @@
       <label class="switch"><input type="checkbox" id="sound"><span></span></label>
     </div>
     <div class="row">
-      <label>Annonce vocale<small>« Round 3 », « Repos »…</small></label>
+      <label>Annonce vocale<small id="voiceNote">« Round 3 », « Repos »…</small></label>
       <label class="switch"><input type="checkbox" id="voice"><span></span></label>
     </div>
   </section>
@@ -329,7 +329,8 @@
   const soundCb = $("#sound"), voiceCb = $("#voice");
   soundCb.checked = cfg.sound; voiceCb.checked = cfg.voice;
   soundCb.onchange = () => { cfg.sound = soundCb.checked; save(); updateMuteIcon(); };
-  voiceCb.onchange = () => { cfg.voice = voiceCb.checked; save(); };
+  // activer l'interrupteur fait parler tout de suite : test immédiat + déblocage de la voix sur mobile
+  voiceCb.onchange = () => { cfg.voice = voiceCb.checked; save(); if (cfg.voice) say("Annonces vocales activées", true); };
 
   const presetsEl = $("#presets");
   PRESETS.forEach((p) => {
@@ -397,11 +398,44 @@
     v.gain.setValueAtTime(0.12, t); v.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(v).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
   }
-  function say(text) {
-    if (!cfg.sound || !cfg.voice || !("speechSynthesis" in window)) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text); u.lang = "fr-FR"; u.rate = 1.05;
-    speechSynthesis.speak(u);
+  // ---------- Voix ----------
+  const tts = "speechSynthesis" in window ? window.speechSynthesis : null;
+  let frVoice = null, voicesLoaded = false;
+  function pickVoice() {
+    if (!tts) return;
+    const all = tts.getVoices();
+    if (!all.length) return;
+    voicesLoaded = true;
+    const fr = all.filter((v) => /^fr/i.test(v.lang));
+    frVoice = fr.find((v) => /fr[-_]FR/i.test(v.lang) && v.localService) || fr.find((v) => /fr[-_]FR/i.test(v.lang)) || fr[0] || null;
+    updateVoiceNote();
+  }
+  if (tts) {
+    pickVoice(); tts.addEventListener?.("voiceschanged", pickVoice);
+    // certains navigateurs n'envoient jamais « voiceschanged » quand ils n'ont aucune voix
+    setTimeout(() => { if (!voicesLoaded) { voicesLoaded = true; updateVoiceNote(); } }, 2000);
+  } else updateVoiceNote();
+  function updateVoiceNote() {
+    const note = $("#voiceNote");
+    if (!tts) note.textContent = "Non pris en charge par ce navigateur";
+    else if (voicesLoaded && !tts.getVoices().length) note.textContent = "Aucune voix installée sur cet appareil";
+    else if (voicesLoaded && !frVoice) note.textContent = "Pas de voix française : voix par défaut";
+    else note.textContent = "« Round 3 », « Repos »…";
+  }
+  function speakNow(text) {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "fr-FR"; u.rate = 1.05; u.volume = 1;
+    if (frVoice) u.voice = frVoice;
+    tts.resume(); // Chrome reste parfois bloqué en pause
+    tts.speak(u);
+  }
+  function say(text, force = false) {
+    if (!tts || (!force && (!cfg.sound || !cfg.voice))) return;
+    if (tts.speaking || tts.pending) {
+      // cancel() suivi immédiatement de speak() fait taire Chrome : on laisse un court délai
+      tts.cancel();
+      setTimeout(() => speakNow(text), 80);
+    } else speakNow(text);
   }
 
   // ---------- Wake lock (garde l'écran allumé) ----------
@@ -488,7 +522,6 @@
 
   function start() {
     audio(); // déverrouille l'audio sur mobile (geste utilisateur)
-    if ("speechSynthesis" in window && cfg.voice) speechSynthesis.speak(new SpeechSynthesisUtterance(""));
     state.plan = buildPlan();
     state.running = true;
     $("#setup").style.display = "none";
