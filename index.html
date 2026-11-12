@@ -129,22 +129,24 @@
   .bar { height: 8px; background: rgba(0,0,0,.25); border-radius: 8px; overflow: hidden; margin: 14px 0 6px; }
   .bar i { display: block; height: 100%; width: 0; background: rgba(255,255,255,.9); }
   .meta { display: flex; justify-content: space-between; font-size: .9rem; opacity: .9; font-variant-numeric: tabular-nums; }
-  .controls { display: flex; justify-content: center; gap: 14px; margin-top: 16px; }
+  .controls { display: flex; justify-content: center; align-items: center; gap: min(14px, 3vw); margin-top: 16px; }
+  /* taille relative à la largeur d'écran : 4 petits + 1 grand + espaces tiennent toujours, et restent ronds */
   .controls button {
-    background: rgba(0,0,0,.28); border-radius: 50%; width: 64px; height: 64px;
+    background: rgba(0,0,0,.28); border-radius: 50%; padding: 0;
+    width: min(64px, 16vw); height: auto; aspect-ratio: 1; flex: 0 0 auto;
     display: grid; place-items: center;
   }
-  .controls button.big { width: 84px; height: 84px; background: rgba(255,255,255,.92); color: #111; }
-  .controls svg { width: 28px; height: 28px; fill: currentColor; }
-  .controls button.big svg { width: 36px; height: 36px; }
+  .controls button.big { width: min(84px, 21vw); background: rgba(255,255,255,.92); color: #111; }
+  .controls svg { width: 44%; height: auto; aspect-ratio: 1; fill: currentColor; }
+  .controls button.big svg { width: 44%; }
   #run.paused #clock { animation: blink 1s steps(2) infinite; }
   @keyframes blink { 50% { opacity: .35; } }
 
   @media (orientation: landscape) and (max-height: 500px) {
     #clock { font-size: clamp(4rem, 34vh, 14rem); }
     .controls { margin-top: 8px; }
-    .controls button { width: 52px; height: 52px; }
-    .controls button.big { width: 64px; height: 64px; }
+    .controls button { width: 52px; }
+    .controls button.big { width: 64px; }
   }
 </style>
 </head>
